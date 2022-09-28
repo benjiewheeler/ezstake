@@ -1,0 +1,36 @@
+{
+	"name": "ezstake",
+	"private": true,
+	"version": "1.0.0",
+	"description": "Smart contract for customizable NFT staking using Atomicassets standard",
+	"scripts": {
+		"build:dev": "cd contract; blanc++ -I include src/ezstake.cpp",
+		"build:prod": "cd contract; cdt-cpp -I include src/ezstake.cpp",
+		"test": "mocha -s 250 -r ts-node/register tests/**/*.spec.ts"
+	},
+	"keywords": [
+		"atomicassets",
+		"contract",
+		"nft",
+		"smart",
+		"staking"
+	],
+	"author": {
+		"name": "Benjie",
+		"email": "benjiewheeler@protonmail.com",
+		"url": "https://github.com/benjiewheeler"
+	},
+	"devDependencies": {
+		"@proton/vert": "^0.3.20",
+		"@types/chai": "^4.3.3",
+		"@types/chai-as-promised": "^7.1.5",
+		"@types/mocha": "^9.1.1",
+		"@types/node": "^18.7.23",
+		"chai": "^4.3.6",
+		"chai-as-promised": "^7.1.1",
+		"mocha": "^10.0.0",
+		"proton-tsc": "^0.3.58",
+		"ts-node": "^10.9.1",
+		"typescript": "^4.8.3"
+	}
+}
