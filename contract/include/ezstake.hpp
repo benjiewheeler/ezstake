@@ -1,3 +1,4 @@
+#include "atomicassets-interface.hpp"
 #include <eosio/asset.hpp>
 #include <eosio/eosio.hpp>
 #include <eosio/singleton.hpp>
@@ -8,6 +9,14 @@ CONTRACT ezstake : public contract
 {
 public:
     using contract::contract;
+
+    // ------------ structs ------------
+
+    struct template_item {
+        int32_t template_id;
+        name collection;
+        asset hourly_rate;
+    };
 
     // ------------ admin actions ------------
 
@@ -20,6 +29,9 @@ public:
     // set the contract token config
     ACTION settoken(const name& contract, const symbol& symbol);
 
+    // add the staking assets templates
+    ACTION addtemplates(const std::vector<template_item>& templates);
+
 private:
     // token stat struct
     struct stat_s {
@@ -28,6 +40,15 @@ private:
         name issuer;
 
         uint64_t primary_key() const { return supply.symbol.code().raw(); }
+    };
+
+    TABLE template_s
+    {
+        int32_t template_id;
+        name collection;
+        asset hourly_rate;
+
+        auto primary_key() const { return uint64_t(template_id); }
     };
 
     TABLE config
@@ -47,5 +68,26 @@ private:
     // token stat table definition
     typedef multi_index<name("stat"), stat_s> stat_t;
 
+    typedef multi_index<name("templates"), template_s> template_t;
     typedef singleton<name("config"), config> config_t;
+
+    // Utilities
+
+    // check if the contract is initialized
+    config check_config()
+    {
+        // get config table
+        config_t conf_tbl(get_self(), get_self().value);
+
+        // check if a config exists
+        check(conf_tbl.exists(), "smart contract is not initialized yet");
+
+        // get  current config
+        const auto& conf = conf_tbl.get();
+
+        // check if contract isn't frozen
+        check(!conf.is_frozen, "smart contract is currently frozen");
+
+        return conf;
+    }
 };

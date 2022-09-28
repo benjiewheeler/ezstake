@@ -62,3 +62,42 @@ ACTION ezstake::settoken(const name& contract, const symbol& symbol)
     // save the new config
     conf_tbl.set(conf, get_self());
 }
+
+ACTION ezstake::addtemplates(const std::vector<template_item>& templates)
+{
+    // check contract auth
+    check(has_auth(get_self()), "this action is admin only");
+
+    const auto& config = check_config();
+
+    template_t template_tbl(get_self(), get_self().value);
+
+    for (const template_item& t : templates) {
+        check(t.hourly_rate.amount > 0, "hourly_rate must be positive");
+        check(config.token_symbol == t.hourly_rate.symbol, "symbol mismatch");
+
+        const auto& aa_template_tbl = atomicassets::get_templates(t.collection);
+
+        const auto& aa_template_itr = aa_template_tbl.find(uint64_t(t.template_id));
+
+        if (aa_template_itr == aa_template_tbl.end()) {
+            check(false, string("template (" + to_string(t.template_id) + ") not found in collection " + t.collection.to_string()).c_str());
+        }
+
+        const auto& template_row = template_tbl.find(uint64_t(t.template_id));
+
+        if (template_row == template_tbl.end()) {
+            template_tbl.emplace(get_self(), [&](template_s& row) {
+                row.template_id = t.template_id;
+                row.collection = t.collection;
+                row.hourly_rate = t.hourly_rate;
+            });
+        } else {
+            template_tbl.modify(template_row, get_self(), [&](template_s& row) {
+                row.template_id = t.template_id;
+                row.collection = t.collection;
+                row.hourly_rate = t.hourly_rate;
+            });
+        }
+    }
+}
