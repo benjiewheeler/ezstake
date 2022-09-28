@@ -32,6 +32,9 @@ public:
     // add the staking assets templates
     ACTION addtemplates(const std::vector<template_item>& templates);
 
+    // remove the staking assets templates
+    ACTION rmtemplates(const std::vector<template_item>& templates);
+
 private:
     // token stat struct
     struct stat_s {

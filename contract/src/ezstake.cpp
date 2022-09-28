@@ -68,14 +68,18 @@ ACTION ezstake::addtemplates(const std::vector<template_item>& templates)
     // check contract auth
     check(has_auth(get_self()), "this action is admin only");
 
+    // check if the contract isn't frozen
     const auto& config = check_config();
 
+    // get templates table instance
     template_t template_tbl(get_self(), get_self().value);
 
     for (const template_item& t : templates) {
+        // check if the hourly rate is valid
         check(t.hourly_rate.amount > 0, "hourly_rate must be positive");
         check(config.token_symbol == t.hourly_rate.symbol, "symbol mismatch");
 
+        // check if the template exists in atomicassets and it's valid
         const auto& aa_template_tbl = atomicassets::get_templates(t.collection);
 
         const auto& aa_template_itr = aa_template_tbl.find(uint64_t(t.template_id));
@@ -86,6 +90,7 @@ ACTION ezstake::addtemplates(const std::vector<template_item>& templates)
 
         const auto& template_row = template_tbl.find(uint64_t(t.template_id));
 
+        // insert the new template or update it if it already exists
         if (template_row == template_tbl.end()) {
             template_tbl.emplace(get_self(), [&](template_s& row) {
                 row.template_id = t.template_id;
@@ -98,6 +103,27 @@ ACTION ezstake::addtemplates(const std::vector<template_item>& templates)
                 row.collection = t.collection;
                 row.hourly_rate = t.hourly_rate;
             });
+        }
+    }
+}
+
+ACTION ezstake::rmtemplates(const std::vector<template_item>& templates)
+{
+    // check contract auth
+    check(has_auth(get_self()), "this action is admin only");
+
+    // check if the contract isn't frozen
+    const auto& config = check_config();
+
+    // get templates table instance
+    template_t template_tbl(get_self(), get_self().value);
+
+    for (const template_item& t : templates) {
+        const auto& template_row = template_tbl.find(uint64_t(t.template_id));
+
+        // erase the template if it already exists
+        if (template_row != template_tbl.end()) {
+            template_tbl.erase(template_row);
         }
     }
 }

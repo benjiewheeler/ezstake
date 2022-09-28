@@ -163,4 +163,65 @@ describe("config", () => {
 			});
 		});
 	});
+
+	describe("remove templates", () => {
+		it("require contract auth", () => {
+			return assert.isRejected(ezstakeContract.actions.rmtemplates([[]]).send("alice@active"), "this action is admin only");
+		});
+
+		it("remove the templates", async () => {
+			return assert.isFulfilled(
+				ezstakeContract.actions
+					.rmtemplates([
+						[
+							{ template_id: 1, collection: "dummycol", hourly_rate: "1.00000000 WAX" },
+							{ template_id: 2, collection: "dummycol", hourly_rate: "2.00000000 WAX" },
+							{ template_id: 1, collection: "invalidcol", hourly_rate: "1.00000000 WAX" },
+							{ template_id: 99, collection: "dummycol", hourly_rate: "1.00000000 WAX" },
+							{ template_id: 3, collection: "dummycol", hourly_rate: "0.00000000 WAX" },
+							{ template_id: 3, collection: "dummycol", hourly_rate: "-1.00000000 WAX" },
+							{ template_id: 3, collection: "dummycol", hourly_rate: "1.0000 BTC" },
+						],
+					])
+					.send()
+			);
+		});
+
+		describe("table storage", () => {
+			before(async () => {
+				blockchain.resetTables();
+
+				// to initiate the config table
+				await ezstakeContract.actions.setconfig([600, 259200]).send();
+
+				// create dummy collection
+				await createDummyCollection();
+			});
+
+			it("update row", async () => {
+				// add templates
+				await ezstakeContract.actions
+					.addtemplates([
+						[
+							{ template_id: 1, collection: "dummycol", hourly_rate: "1.00000000 WAX" },
+							{ template_id: 2, collection: "dummycol", hourly_rate: "2.00000000 WAX" },
+						],
+					])
+					.send();
+
+				// remove a template
+				await ezstakeContract.actions.rmtemplates([[{ template_id: 1, collection: "dummycol", hourly_rate: "1.00000000 WAX" }]]).send();
+
+				const rows = getTableRows<any[]>(blockchain, ezstakeContract.name.toString(), "templates", ezstakeContract.name.toString());
+
+				return assert.deepEqual(rows, [
+					{
+						primaryKey: 2n,
+						payer: ezstakeContract.name.toString(),
+						value: { template_id: 2, collection: "dummycol", hourly_rate: "2.00000000 WAX" },
+					},
+				]);
+			});
+		});
+	});
 });
