@@ -88,16 +88,13 @@ describe("config", () => {
 
 		describe("set invalid templates", () => {
 			it("incorrect template/collection", () => {
-				return assert.isRejected(
+				assert.isRejected(
 					ezstakeContract.actions
 						.addtemplates([[{ template_id: 1, collection: "invalidcol", hourly_rate: "1.00000000 WAX" }]])
 						.send(),
 					"template (1) not found in collection invalidcol"
 				);
-			});
-
-			it("incorrect template/collection", () => {
-				return assert.isRejected(
+				assert.isRejected(
 					ezstakeContract.actions.addtemplates([[{ template_id: 99, collection: "dummycol", hourly_rate: "1.00000000 WAX" }]]).send(),
 					"template (99) not found in collection dummycol"
 				);
