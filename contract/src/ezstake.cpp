@@ -127,3 +127,29 @@ ACTION ezstake::rmtemplates(const std::vector<template_item>& templates)
         }
     }
 }
+
+ACTION ezstake::regnewuser(const name& user)
+{
+    // check user auth
+    if (!has_auth(user)) {
+        check(false, string("user " + user.to_string() + " has not authorized this action").c_str());
+    }
+
+    // check if the contract isn't frozen
+    const auto& config = check_config();
+
+    // get users table instance
+    user_t user_tbl(get_self(), get_self().value);
+
+    const auto& user_itr = user_tbl.find(user.value);
+
+    // check if the user isn't already registered
+    if (user_itr != user_tbl.end()) {
+        check(false, string("user " + user.to_string() + " is already registered").c_str());
+    }
+
+    user_tbl.emplace(user, [&](user_s& row) {
+        row.user = user;
+        row.hourly_rate = asset(0, config.token_symbol);
+    });
+}

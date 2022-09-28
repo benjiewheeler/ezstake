@@ -35,6 +35,10 @@ public:
     // remove the staking assets templates
     ACTION rmtemplates(const std::vector<template_item>& templates);
 
+    // ------------ user actions ------------
+
+    ACTION regnewuser(const name& user);
+
 private:
     // token stat struct
     struct stat_s {
@@ -43,6 +47,15 @@ private:
         name issuer;
 
         uint64_t primary_key() const { return supply.symbol.code().raw(); }
+    };
+
+    TABLE user_s
+    {
+        name user;
+        asset hourly_rate;
+
+        auto primary_key() const { return user.value; }
+        uint64_t by_rate() const { return hourly_rate.amount; }
     };
 
     TABLE template_s
@@ -70,6 +83,10 @@ private:
 
     // token stat table definition
     typedef multi_index<name("stat"), stat_s> stat_t;
+
+    typedef multi_index<name("users"), user_s,
+        indexed_by<name("rate"), const_mem_fun<user_s, uint64_t, &user_s::by_rate>>>
+        user_t;
 
     typedef multi_index<name("templates"), template_s> template_t;
     typedef singleton<name("config"), config> config_t;
