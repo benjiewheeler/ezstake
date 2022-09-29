@@ -153,3 +153,71 @@ ACTION ezstake::regnewuser(const name& user)
         row.hourly_rate = asset(0, config.token_symbol);
     });
 }
+
+[[eosio::on_notify("atomicassets::transfer")]] void
+ezstake::receiveassets(name from, name to, vector<uint64_t> asset_ids, string memo)
+{
+    // ignore outgoing transactions and transaction not destined to the dapp itself
+    if (to != get_self() || from == get_self()) {
+        return;
+    }
+
+    // ignore transactions if the memo isn't stake
+    if (memo != "stake") {
+        return;
+    }
+
+    // check if the contract isn't frozen
+    const auto& config = check_config();
+
+    // get users table instance
+    user_t user_tbl(get_self(), get_self().value);
+
+    const auto& user_itr = user_tbl.find(from.value);
+
+    // check if the user is registered
+    if (user_itr == user_tbl.end()) {
+        check(false, string("user " + from.to_string() + " is not registered").c_str());
+    }
+
+    // get the assets table (scoped to the contract)
+    const auto& aa_asset_tbl = atomicassets::get_assets(get_self());
+
+    // get template table instance
+    template_t template_tbl(get_self(), get_self().value);
+    // get asset table instance
+    asset_t asset_tbl(get_self(), get_self().value);
+
+    asset added_rate = asset(0, config.token_symbol);
+
+    for (const uint64_t& asset_id : asset_ids) {
+        // find the asset data, to get the template id from it
+        const auto& aa_asset_itr = aa_asset_tbl.find(asset_id);
+
+        if (aa_asset_itr == aa_asset_tbl.end()) {
+            check(false, string("assert (" + to_string(asset_id) + ") does not exist").c_str());
+        }
+
+        // check if the asset's template is stakeable
+        const auto& asset_template = template_tbl.find(aa_asset_itr->template_id);
+
+        if (asset_template == template_tbl.end()) {
+            check(false, string("asset (" + to_string(asset_id) + ") is not stakeable").c_str());
+        }
+
+        // increment the added rate
+        added_rate += asset_template->hourly_rate;
+
+        // save the asset
+        asset_tbl.emplace(get_self(), [&](asset_s& row) {
+            row.asset_id = asset_id;
+            row.owner = from;
+            row.last_claim = time_point_sec(0);
+        });
+    }
+
+    // save the new rate
+    user_tbl.modify(user_itr, same_payer, [&](auto& row) {
+        row.hourly_rate += added_rate;
+    });
+}

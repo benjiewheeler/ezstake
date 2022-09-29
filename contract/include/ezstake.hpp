@@ -37,7 +37,13 @@ public:
 
     // ------------ user actions ------------
 
+    // register a new user
     ACTION regnewuser(const name& user);
+
+    // ------------ notify handlers ------------
+
+    // receiver assets from the user
+    void receiveassets(name from, name to, vector<uint64_t> asset_ids, string memo);
 
 private:
     // token stat struct
@@ -56,6 +62,16 @@ private:
 
         auto primary_key() const { return user.value; }
         uint64_t by_rate() const { return hourly_rate.amount; }
+    };
+
+    TABLE asset_s
+    {
+        uint64_t asset_id;
+        name owner;
+        time_point_sec last_claim;
+
+        auto primary_key() const { return asset_id; }
+        uint64_t by_owner() const { return owner.value; }
     };
 
     TABLE template_s
@@ -87,6 +103,10 @@ private:
     typedef multi_index<name("users"), user_s,
         indexed_by<name("rate"), const_mem_fun<user_s, uint64_t, &user_s::by_rate>>>
         user_t;
+
+    typedef multi_index<name("assets"), asset_s,
+        indexed_by<name("owner"), const_mem_fun<asset_s, uint64_t, &asset_s::by_owner>>>
+        asset_t;
 
     typedef multi_index<name("templates"), template_s> template_t;
     typedef singleton<name("config"), config> config_t;
