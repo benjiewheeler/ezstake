@@ -12,9 +12,13 @@ public:
 
     // ------------ structs ------------
 
+    // public template struct for the addtemplates/rmtemplates actions
     struct template_item {
+        // id of the template (from the atomicassets)
         int32_t template_id;
+        // name of the collection of this template
         name collection;
+        // the staking power provided by this template
         asset hourly_rate;
     };
 
@@ -50,6 +54,7 @@ public:
 
 private:
     // token stat struct
+    // taken from the reference eosio.token contract
     struct stat_s {
         asset supply;
         asset max_supply;
@@ -60,27 +65,37 @@ private:
 
     TABLE user_s
     {
+        // name of the user
         name user;
+        // the total hourly_rate this user has
         asset hourly_rate;
 
         auto primary_key() const { return user.value; }
+        // secondary index to sort/query the users by their rate
         uint64_t by_rate() const { return hourly_rate.amount; }
     };
 
     TABLE asset_s
     {
+        // id of the assets (from the atomicassets)
         uint64_t asset_id;
+        // name of the owner of the asset
         name owner;
+        // timestamp of the last claim
         time_point_sec last_claim;
 
         auto primary_key() const { return asset_id; }
+        // secondary index to sort/query assets by their owner
         uint64_t by_owner() const { return owner.value; }
     };
 
     TABLE template_s
     {
+        // id of the template (from the atomicassets)
         int32_t template_id;
+        // name of the collection of this template
         name collection;
+        // the staking power provided by this template
         asset hourly_rate;
 
         auto primary_key() const { return uint64_t(template_id); }
