@@ -128,6 +128,48 @@ ACTION ezstake::rmtemplates(const std::vector<template_item>& templates)
     }
 }
 
+ACTION ezstake::resetuser(const name& user)
+{
+    // check contract auth
+    check(has_auth(get_self()), "this action is admin only");
+
+    // check if the contract isn't frozen
+    const auto& config = check_config();
+
+    // get users table instance
+    user_t user_tbl(get_self(), get_self().value);
+
+    const auto& user_itr = user_tbl.find(user.value);
+
+    // erase the user if the it is already registered
+    if (user_itr != user_tbl.end()) {
+        user_tbl.erase(user_itr);
+    }
+
+    // get asset table instance
+    asset_t asset_tbl(get_self(), get_self().value);
+
+    vector<uint64_t> staked_assets = {};
+
+    // get the secondary index
+    auto owner_idx = asset_tbl.get_index<name("owner")>();
+    auto owner_itr = owner_idx.lower_bound(user.value);
+
+    // iterate through the rows and erase them
+    while (owner_itr != owner_idx.end() && owner_itr->owner == user) {
+        staked_assets.push_back(owner_itr->asset_id);
+        owner_idx.erase(owner_itr++);
+    }
+
+    // return the assets back to the user if there's any
+    if (staked_assets.size() > 0) {
+        // send the assets back
+        action(permission_level { get_self(), name("active") }, atomicassets::ATOMICASSETS_ACCOUNT, name("transfer"),
+            make_tuple(get_self(), user, staked_assets, string("Unstaking")))
+            .send();
+    }
+}
+
 ACTION ezstake::regnewuser(const name& user)
 {
     // check user auth

@@ -1,3 +1,4 @@
+import { TimePointSec } from "@greymass/eosio";
 import { Blockchain, nameToBigInt } from "@proton/vert";
 import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
@@ -151,6 +152,9 @@ describe("stake", () => {
 			});
 
 			it("update row", async () => {
+				// set blockchain time
+				blockchain.setTime(TimePointSec.fromString("2022-01-01T00:00:00"));
+
 				await atomicassetsContract.actions.transfer(["alice", "ezstake", ["1099511627779"], "stake"]).send("alice@active");
 
 				const [user] = getTableRows<any[]>(blockchain, ezstakeContract.name.toString(), "users", ezstakeContract.name.toString());
@@ -167,7 +171,7 @@ describe("stake", () => {
 					{
 						primaryKey: 1099511627779n,
 						payer: ezstakeContract.name.toString(),
-						value: { asset_id: "1099511627779", owner: "alice", last_claim: "1970-01-01T00:00:00" },
+						value: { asset_id: "1099511627779", owner: "alice", last_claim: "2022-01-01T00:00:00" },
 						secondaryIndexes: [{ type: "idxu64", value: nameToBigInt("alice") }],
 					},
 				]);

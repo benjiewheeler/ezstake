@@ -39,6 +39,10 @@ public:
     // remove the staking assets templates
     ACTION rmtemplates(const std::vector<template_item>& templates);
 
+    // unstake all assets & reset a user from the contract
+    // used in cases of emergencies such as when a user can't unstake a removed template
+    ACTION resetuser(const name& user);
+
     // ------------ user actions ------------
 
     // register a new user
