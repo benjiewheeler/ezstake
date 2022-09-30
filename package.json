@@ -21,6 +21,7 @@
 		"url": "https://github.com/benjiewheeler"
 	},
 	"devDependencies": {
+		"@greymass/eosio": "~0.5.5",
 		"@proton/vert": "^0.3.20",
 		"@types/chai": "^4.3.3",
 		"@types/chai-as-promised": "^7.1.5",

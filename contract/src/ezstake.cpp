@@ -154,6 +154,87 @@ ACTION ezstake::regnewuser(const name& user)
     });
 }
 
+ACTION ezstake::claim(const name& user, const vector<uint64_t>& asset_ids)
+{
+    // check user auth
+    if (!has_auth(user)) {
+        check(false, string("user " + user.to_string() + " has not authorized this action").c_str());
+    }
+
+    // check if the contract isn't frozen
+    const auto& config = check_config();
+
+    // get users table instance
+    user_t user_tbl(get_self(), get_self().value);
+
+    const auto& user_itr = user_tbl.find(user.value);
+
+    // check if the user is registered
+    if (user_itr == user_tbl.end()) {
+        check(false, string("user " + user.to_string() + " is not registered").c_str());
+    }
+
+    // get template table instance
+    template_t template_tbl(get_self(), get_self().value);
+    // get asset table instance
+    asset_t asset_tbl(get_self(), get_self().value);
+
+    asset claimed_amount = asset(0, config.token_symbol);
+
+    // get the assets table (scoped to the contract)
+    const auto& aa_asset_tbl = atomicassets::get_assets(get_self());
+
+    for (const uint64_t& asset_id : asset_ids) {
+        // find the asset data, to get the template id from it
+        const auto& asset_itr = asset_tbl.find(asset_id);
+
+        // check if the asset is staked
+        if (asset_itr == asset_tbl.end()) {
+            check(false, string("asset (" + to_string(asset_id) + ") is not staked").c_str());
+        }
+
+        // check if the asset belongs to the user
+        if (asset_itr->owner != user) {
+            check(false, string("asset (" + to_string(asset_id) + ") does not belong to " + user.to_string()).c_str());
+        }
+
+        // find the asset data, to get the template id from it
+        const auto& aa_asset_itr = aa_asset_tbl.find(asset_id);
+
+        if (aa_asset_itr == aa_asset_tbl.end()) {
+            check(false, string("assert (" + to_string(asset_id) + ") does not exist").c_str());
+        }
+
+        // check if the asset's template is stakeable
+        const auto& template_itr = template_tbl.find(aa_asset_itr->template_id);
+
+        if (template_itr == template_tbl.end()) {
+            check(false, string("asset (" + to_string(asset_id) + ") is not stakeable").c_str());
+        }
+
+        auto period_sec = current_time_point().sec_since_epoch() - asset_itr->last_claim.sec_since_epoch();
+
+        // check if the asset is not in cooldown
+        if (period_sec < config.min_claim_period) {
+            check(false, string("asset (" + to_string(asset_id) + ") is still in cooldown").c_str());
+        }
+
+        // increment the claimed amount
+        claimed_amount.amount += (template_itr->hourly_rate.amount * period_sec) / 3600;
+
+        // reset the last claim time
+        asset_tbl.modify(asset_itr, user, [&](asset_s& row) { row.last_claim = current_time_point(); });
+    }
+
+    // fail if the reward is 0
+    check(claimed_amount.amount > 0, "nothing to claim");
+
+    // send the tokens
+    action(permission_level { get_self(), name("active") }, config.token_contract, name("transfer"),
+        make_tuple(get_self(), user, claimed_amount, string("Staking reward")))
+        .send();
+}
+
 [[eosio::on_notify("atomicassets::transfer")]] void
 ezstake::receiveassets(name from, name to, vector<uint64_t> asset_ids, string memo)
 {
@@ -199,20 +280,20 @@ ezstake::receiveassets(name from, name to, vector<uint64_t> asset_ids, string me
         }
 
         // check if the asset's template is stakeable
-        const auto& asset_template = template_tbl.find(aa_asset_itr->template_id);
+        const auto& template_itr = template_tbl.find(aa_asset_itr->template_id);
 
-        if (asset_template == template_tbl.end()) {
+        if (template_itr == template_tbl.end()) {
             check(false, string("asset (" + to_string(asset_id) + ") is not stakeable").c_str());
         }
 
         // increment the added rate
-        added_rate += asset_template->hourly_rate;
+        added_rate += template_itr->hourly_rate;
 
         // save the asset
         asset_tbl.emplace(get_self(), [&](asset_s& row) {
             row.asset_id = asset_id;
             row.owner = from;
-            row.last_claim = time_point_sec(0);
+            row.last_claim = time_point_sec(current_time_point());
         });
     }
 

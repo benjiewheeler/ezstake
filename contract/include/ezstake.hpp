@@ -40,6 +40,9 @@ public:
     // register a new user
     ACTION regnewuser(const name& user);
 
+    // claim the generated tokens
+    ACTION claim(const name& user, const vector<uint64_t>& asset_ids);
+
     // ------------ notify handlers ------------
 
     // receiver assets from the user
