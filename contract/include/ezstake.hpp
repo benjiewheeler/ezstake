@@ -47,6 +47,9 @@ public:
     // claim the generated tokens
     ACTION claim(const name& user, const vector<uint64_t>& asset_ids);
 
+    // unstake the user's assets
+    ACTION unstake(const name& user, const vector<uint64_t>& asset_ids);
+
     // ------------ notify handlers ------------
 
     // receiver assets from the user

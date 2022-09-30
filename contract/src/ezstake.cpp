@@ -235,6 +235,96 @@ ACTION ezstake::claim(const name& user, const vector<uint64_t>& asset_ids)
         .send();
 }
 
+ACTION ezstake::unstake(const name& user, const vector<uint64_t>& asset_ids)
+{
+    // check user auth
+    if (!has_auth(user)) {
+        check(false, string("user " + user.to_string() + " has not authorized this action").c_str());
+    }
+
+    // check if there's any requested asset_ids at all
+    check(asset_ids.size() > 0, "must unstake at least 1 asset");
+
+    // check if the contract isn't frozen
+    const auto& config = check_config();
+
+    // get users table instance
+    user_t user_tbl(get_self(), get_self().value);
+
+    const auto& user_itr = user_tbl.find(user.value);
+
+    // check if the user is registered
+    if (user_itr == user_tbl.end()) {
+        check(false, string("user " + user.to_string() + " is not registered").c_str());
+    }
+
+    // get template table instance
+    template_t template_tbl(get_self(), get_self().value);
+    // get asset table instance
+    asset_t asset_tbl(get_self(), get_self().value);
+
+    asset removed_rate = asset(0, config.token_symbol);
+
+    // get the assets table (scoped to the contract)
+    const auto& aa_asset_tbl = atomicassets::get_assets(get_self());
+
+    for (const uint64_t& asset_id : asset_ids) {
+        // find the asset data, to get the template id from it
+        const auto& asset_itr = asset_tbl.find(asset_id);
+
+        // check if the asset is staked
+        if (asset_itr == asset_tbl.end()) {
+            check(false, string("asset (" + to_string(asset_id) + ") is not staked").c_str());
+        }
+
+        // check if the asset belongs to the user
+        if (asset_itr->owner != user) {
+            check(false, string("asset (" + to_string(asset_id) + ") does not belong to " + user.to_string()).c_str());
+        }
+
+        // find the asset data, to get the template id from it
+        const auto& aa_asset_itr = aa_asset_tbl.find(asset_id);
+
+        if (aa_asset_itr == aa_asset_tbl.end()) {
+            check(false, string("assert (" + to_string(asset_id) + ") does not exist").c_str());
+        }
+
+        // check if the asset's template is stakeable
+        const auto& template_itr = template_tbl.find(aa_asset_itr->template_id);
+
+        if (template_itr == template_tbl.end()) {
+            check(false, string("asset (" + to_string(asset_id) + ") is not stakeable").c_str());
+        }
+
+        auto period_sec = current_time_point().sec_since_epoch() - asset_itr->last_claim.sec_since_epoch();
+
+        // check if the asset can be unstaked
+        if (period_sec < config.unstake_period) {
+            check(false, string("asset (" + to_string(asset_id) + ") cannot be unstaked yet").c_str());
+        }
+
+        // increment the removed amount
+        removed_rate += template_itr->hourly_rate;
+
+        // remove the assets from the user's staked assets
+        asset_tbl.erase(asset_itr);
+    }
+
+    // sanity check
+    // this should never happen unless the template rate was changed after staking
+    check(removed_rate <= user_itr->hourly_rate, "unstaked rate larger than user's rate; this shouldn't happen !!");
+
+    // save the new rate
+    user_tbl.modify(user_itr, same_payer, [&](auto& row) {
+        row.hourly_rate -= removed_rate;
+    });
+
+    // send the assets back
+    action(permission_level { get_self(), name("active") }, atomicassets::ATOMICASSETS_ACCOUNT, name("transfer"),
+        make_tuple(get_self(), user, asset_ids, string("Unstaking")))
+        .send();
+}
+
 [[eosio::on_notify("atomicassets::transfer")]] void
 ezstake::receiveassets(name from, name to, vector<uint64_t> asset_ids, string memo)
 {
